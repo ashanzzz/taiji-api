@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.*
+data
+research
+artifacts
+*.log
+node_modules

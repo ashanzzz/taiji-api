@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>太极 API 控制台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div id="app" class="app-shell" aria-live="polite"></div>
+  <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <p class="eyebrow">请求确认</p>
+      <h2 id="confirm-title">开始兼容性测试？</h2>
+      <p id="confirm-copy">此操作会向上游发送测试请求。</p>
+      <div class="dialog-actions">
+        <button class="button button--quiet" value="cancel">取消</button>
+        <button id="confirm-submit" class="button button--danger" value="confirm">确认并开始</button>
+      </div>
+    </form>
+  </dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
