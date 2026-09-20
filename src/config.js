@@ -18,6 +18,7 @@ export function loadConfig(env = process.env) {
     toolBridgeAllowedModels: splitList(env.TOOL_BRIDGE_ALLOWED_MODELS || ''),
     toolBridgeMaxTools: boundedInteger(env.TOOL_BRIDGE_MAX_TOOLS, 8, 1, 16),
     toolBridgeMaxCalls: boundedInteger(env.TOOL_BRIDGE_MAX_CALLS_PER_TURN, 1, 1, 4),
+    toolBridgeMaxRepairAttempts: boundedInteger(env.TOOL_BRIDGE_MAX_REPAIR_ATTEMPTS, 1, 0, 1),
   };
 }
 
@@ -38,6 +39,7 @@ export class Settings {
     this.config.toolBridgeAllowedModels = config.toolBridgeAllowedModels;
     this.config.toolBridgeMaxTools = config.toolBridgeMaxTools;
     this.config.toolBridgeMaxCalls = config.toolBridgeMaxCalls;
+    this.config.toolBridgeMaxRepairAttempts = config.toolBridgeMaxRepairAttempts;
     if (config.adminKey) this.config.adminKey = config.adminKey;
   }
 
@@ -50,6 +52,7 @@ export class Settings {
         allowedModels: c.toolBridgeAllowedModels,
         maxTools: c.toolBridgeMaxTools,
         maxCalls: c.toolBridgeMaxCalls,
+        maxRepairAttempts: c.toolBridgeMaxRepairAttempts,
         warning: 'Experimental text bridge only. The upstream does not provide native Function Calling.',
       },
     };

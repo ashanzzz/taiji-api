@@ -103,3 +103,114 @@ test('cancelled session creation releases caller and cleans late session', async
   resolveSession({ id: 42 });
   await new Promise(resolve => setTimeout(resolve, 10)); assert.deepEqual(client.deleted, [42]);
 });
+
+test('adapter stream emits tool_calls with index', async () => {
+  const toolJson = '<TOOL_CALL>\n{"tool_calls":[{"name":"exec_command","arguments":{"cmd":"dir"}}]}\n</TOOL_CALL>';
+  const client = fakeClient([
+    { kind: 'delta', text: toolJson },
+    { kind: 'meta', data: { promptTokens: 5, completionTokens: 10, useTokens: 15 } },
+  ]);
+  const adapter = new OpenAiAdapter(client, {
+    experimentalToolBridge: true,
+    toolBridgeAllowedModels: ['demo'],
+    toolBridgeMaxTools: 8,
+    toolBridgeMaxCalls: 2,
+    deleteTempSessions: true,
+  });
+  const body = {
+    model: 'demo',
+    messages: [{ role: 'user', content: 'run dir' }],
+    tools: [{ type: 'function', function: { name: 'exec_command', parameters: { type: 'object' } } }],
+  };
+  let output = '';
+  await adapter.stream(body, undefined, async (chunk) => { output += chunk; });
+  assert.match(output, /"index":0/);
+  assert.match(output, /"finish_reason":"tool_calls"/);
+  assert.match(output, /\[DONE\]/);
+});
+
+test('adapter complete returns tool_calls and finish_reason', async () => {
+  const toolJson = '<TOOL_CALL>\n{"tool_calls":[{"name":"exec_command","arguments":{"cmd":"dir"}}]}\n</TOOL_CALL>';
+  const client = fakeClient([
+    { kind: 'delta', text: toolJson },
+    { kind: 'meta', data: { promptTokens: 5, completionTokens: 10, useTokens: 15 } },
+  ]);
+  const adapter = new OpenAiAdapter(client, {
+    experimentalToolBridge: true,
+    toolBridgeAllowedModels: ['demo'],
+    toolBridgeMaxTools: 8,
+    toolBridgeMaxCalls: 2,
+    deleteTempSessions: true,
+  });
+  const body = {
+    model: 'demo',
+    messages: [{ role: 'user', content: 'run dir' }],
+    tools: [{ type: 'function', function: { name: 'exec_command', parameters: { type: 'object' } } }],
+  };
+  const res = await adapter.complete(body);
+  assert.equal(res.choices[0].finish_reason, 'tool_calls');
+  assert.equal(res.choices[0].message.content, null);
+  assert.equal(res.choices[0].message.tool_calls.length, 1);
+  assert.equal(res.choices[0].message.tool_calls[0].function.name, 'exec_command');
+});
+
+test('explicit tool intent with invalid syntax triggers repair and succeeds if repaired', async () => {
+  const invalidJson = '<TOOL_CALL>\n{"tool_calls":[{"name":"exec_command","arguments":{"cmd":123}}]}\n</TOOL_CALL>';
+  const validJson = '<TOOL_CALL>\n{"tool_calls":[{"name":"exec_command","arguments":{"cmd":"dir"}}]}\n</TOOL_CALL>';
+
+  let turns = 0;
+  const client = {
+    deleted: [],
+    resolveModel: async () => ({ value: 'demo' }),
+    createSession: async () => ({ id: 42 }),
+    async *chat() {
+      turns++;
+      const text = turns === 1 ? invalidJson : validJson;
+      yield { kind: 'delta', text };
+      yield { kind: 'meta', data: { promptTokens: 5, completionTokens: 10, useTokens: 15 } };
+    },
+    async deleteSession(id) { this.deleted.push(id); },
+  };
+  const adapter = new OpenAiAdapter(client, {
+    experimentalToolBridge: true,
+    toolBridgeAllowedModels: ['demo'],
+    toolBridgeMaxTools: 8,
+    toolBridgeMaxCalls: 2,
+    deleteTempSessions: true,
+  });
+  const body = {
+    model: 'demo',
+    messages: [{ role: 'user', content: 'run dir' }],
+    tools: [{ type: 'function', function: { name: 'exec_command', parameters: { type: 'object', properties: { cmd: { type: 'string' } } } } }],
+  };
+  const res = await adapter.complete(body);
+  assert.equal(turns, 2);
+  assert.equal(res.choices[0].finish_reason, 'tool_calls');
+  assert.equal(res.choices[0].message.tool_calls[0].function.arguments, '{"cmd":"dir"}');
+});
+
+test('explicit tool intent fails with 502 tool_parse_error when unrepairable', async () => {
+  const invalidJson = '<TOOL_CALL>not json at all</TOOL_CALL>';
+  const client = fakeClient([
+    { kind: 'delta', text: invalidJson },
+    { kind: 'meta', data: {} },
+  ]);
+  const adapter = new OpenAiAdapter(client, {
+    experimentalToolBridge: true,
+    toolBridgeAllowedModels: ['demo'],
+    toolBridgeMaxTools: 8,
+    toolBridgeMaxCalls: 2,
+    toolBridgeMaxRepairAttempts: 0,
+    deleteTempSessions: true,
+  });
+  const body = {
+    model: 'demo',
+    messages: [{ role: 'user', content: 'run dir' }],
+    tools: [{ type: 'function', function: { name: 'exec_command', parameters: { type: 'object' } } }],
+  };
+  await assert.rejects(() => adapter.complete(body), (err) => {
+    assert.equal(err.status, 502);
+    assert.equal(err.details?.code, 'tool_parse_error');
+    return true;
+  });
+});
