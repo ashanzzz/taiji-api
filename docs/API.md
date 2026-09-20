@@ -37,10 +37,11 @@ Mutations require JSON. Cross-origin browser requests are rejected.
 ### Test request
 {"model":"openai::gpt-6-astra","kind":"context","steps":[4000,12000,24000],"maxRequests":3}
 
-Kinds: context, reasoning, output. Maximum request budget: six.
+Kinds: context, reasoning, output, tools. Maximum request budget: six.
 Context sizes are characters, not tokens. Range: 512–100000 characters.
 Output probes accept maxOutputTokens from 16 to 2048 and test an unverified max_tokens field.
 Reasoning probes test baseline, thinking=true, low, medium, high, and none in that order.
+Tool probes first send a native OpenAI tools payload, then run a separate text JSON bridge test. A bridge result is never exposed as native Function Calling.
 Jobs stop at their budget. Context growth stops on the first failure.
 Each sample has a three-minute timeout and a 24000-character response safety cap.
 
@@ -53,3 +54,22 @@ Each sample has a three-minute timeout and a 24000-character response safety cap
 Before the first SSE byte, errors preserve HTTP status.
 After streaming begins, errors use an SSE error object followed by [DONE].
 A network failure never automatically replays a generation POST.
+
+### Tool bridge environment
+
+The optional local bridge reads deployment-only environment variables:
+
+| Variable | Meaning |
+| --- | --- |
+| `EXPERIMENTAL_TOOL_BRIDGE` | Must be exactly `true` to enable the bridge. Default is `false`. |
+| `TOOL_BRIDGE_ALLOWED_MODELS` | Comma-separated full model IDs. The bridge rejects all other models. |
+| `TOOL_BRIDGE_MAX_TOOLS` | Maximum submitted function definitions, 1–16. |
+| `TOOL_BRIDGE_MAX_CALLS_PER_TURN` | Maximum parsed calls per model turn, 1–4. |
+
+The admin UI reports these values but cannot enable the bridge or change its allowlist. Set them on the deployment host. The Tool Capability test performs an upstream-native parameter test and a separate JSON bridge test. It does not execute commands.
+
+### Tool bridge
+
+The upstream does not expose native Function Calling for GPT-6-Astra. The local bridge is disabled by default. If enabled by environment configuration, a request with OpenAI `tools` is converted to a strict text instruction. The model's complete response is buffered, parsed only for allowlisted tool names and JSON-object arguments, then returned as an OpenAI-shaped `tool_calls` response.
+
+The service never runs tools. A client such as Codex must execute them and post a later `role: tool` message with the matching `tool_call_id`. The adapter limits each tool result to 24,000 characters. Bridge streaming is completion-buffered, not token-by-token. Do not use it for public or unattended execution.

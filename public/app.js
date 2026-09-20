@@ -138,6 +138,7 @@ class ConsoleApp {
     try {
       await this.loadState();
       this.patchState();
+      if (this.route === 'overview') this.renderPage();
       if (announce) this.notice('已读取最新服务状态。');
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return this.logout();
@@ -152,6 +153,7 @@ class ConsoleApp {
   async loadModels(render) {
     try {
       this.models = await api.get('/admin/models');
+      await this.loadState(); this.patchState();
       if (render && this.route === 'models') this.renderPage();
       if (render) this.notice('模型目录已更新。');
     } catch (error) {
@@ -270,6 +272,7 @@ class ConsoleApp {
     } finally {
       this.playAbort = null;
       this.setPlayControls(false);
+      this.refreshState(false);
     }
   }
 
@@ -333,7 +336,7 @@ class ConsoleApp {
     const dialog = document.querySelector('#confirm-dialog');
     const copy = dialog.querySelector('#confirm-copy');
     const submit = dialog.querySelector('#confirm-submit');
-    copy.textContent = `将向模型 ${details.model || '未选择'} 发送最多 ${details.requests} 次${kindLabel(details.kind)}请求（边界：${details.steps.join(' / ')} 字符；输出探针上限：${details.maxOutputTokens}${details.kind === 'output' ? '，并额外试验 32' : ''}）。这会消耗实际上游额度。`;
+    copy.textContent = `将向模型 ${details.model || '未选择'} 发送最多 ${details.requests} 次${kindLabel(details.kind)}请求（边界：${details.steps.join(' / ')} 字符；输出探针上限：${details.maxOutputTokens}${details.kind === 'output' ? '，并额外试验 32' : details.kind === 'tools' ? '，包含原生 tools 参数与文本 JSON 桥接检测' : ''}）。这会消耗实际上游额度。`;
     submit.className = 'button button--danger';
     submit.textContent = '确认并开始';
     return new Promise((resolve) => {
@@ -470,11 +473,11 @@ class ConsoleApp {
 function appendText(node, value) { if (value !== undefined && value !== null) node.textContent += String(value); }
 function message(error) { return error?.message || '请求未完成，请稍后重试。'; }
 function parseSteps(value) { return [...new Set(value.split(/[，,\s]+/).filter(Boolean).map(Number).filter((step) => Number.isInteger(step) && step >= 512 && step <= 100000))]; }
-function kindLabel(kind) { return ({ context: '上下文', reasoning: '推理', output: '输出' })[kind] || '兼容性'; }
+function kindLabel(kind) { return ({ context: '上下文', reasoning: '推理', output: '输出', tools: '工具能力' })[kind] || '兼容性'; }
 function isActive(job) { return ['queued', 'pending', 'running', 'cancelling'].includes(String(job.status).toLowerCase()); }
 function short(value) { const text = String(value || '—'); return text.length > 16 ? `${text.slice(0, 16)}…` : text; }
 function conciseDetails(value) { if (!value) return ''; try { return JSON.stringify(value).slice(0, 480); } catch { return String(value).slice(0, 480); } }
-function conciseOutcome(result) { const flags = []; if (result.inputBytes != null) flags.push(`${result.inputBytes} B`); if (result.requestedOutputTokens != null) flags.push(`请求输出：${result.requestedOutputTokens}`); if (result.thinking !== undefined) flags.push(`thinking：${result.thinking ? 'true' : 'false'}`); if (result.reasoningEffort) flags.push(`强度：${result.reasoningEffort}`); if (result.accepted !== undefined) flags.push(`接受：${result.accepted ? '是' : '否'}`); if (result.effective !== undefined) flags.push(`生效：${result.effective ? '是' : '否'}`); if (result.matchedMarkers != null || result.markerCount != null) flags.push(`标记：${result.matchedMarkers ?? 0}/${result.markerCount ?? '—'}`); if (result.hasThinkTag !== undefined) flags.push(`think：${result.hasThinkTag ? '有' : '无'}`); if (result.hasReasoningField !== undefined) flags.push(`reasoning：${result.hasReasoningField ? '有' : '无'}`); if (result.returnedPromptTokens != null) flags.push(`返回提示：${result.returnedPromptTokens}`); if (result.returnedCompletionTokens != null) flags.push(`返回输出：${result.returnedCompletionTokens}`); if (result.finishReason) flags.push(`结束：${result.finishReason}`); return [result.answerPreview || result.error, flags.join(' · ')].filter(Boolean).join(' · ') || '未返回预览。'; }
+function conciseOutcome(result) { const flags = []; if (result.inputBytes != null) flags.push(`${result.inputBytes} B`); if (result.requestedOutputTokens != null) flags.push(`请求输出：${result.requestedOutputTokens}`); if (result.thinking !== undefined) flags.push(`thinking：${result.thinking ? 'true' : 'false'}`); if (result.reasoningEffort) flags.push(`强度：${result.reasoningEffort}`); if (result.accepted !== undefined) flags.push(`接受：${result.accepted ? '是' : '否'}`); if (result.effective !== undefined) flags.push(`生效：${result.effective ? '是' : '否'}`); if (result.matchedMarkers != null || result.markerCount != null) flags.push(`标记：${result.matchedMarkers ?? 0}/${result.markerCount ?? '—'}`); if (result.hasThinkTag !== undefined) flags.push(`think：${result.hasThinkTag ? '有' : '无'}`); if (result.hasReasoningField !== undefined) flags.push(`reasoning：${result.hasReasoningField ? '有' : '无'}`); if (result.returnedPromptTokens != null) flags.push(`返回提示：${result.returnedPromptTokens}`); if (result.returnedCompletionTokens != null) flags.push(`返回输出：${result.returnedCompletionTokens}`); if (result.nativeToolsParameterSent) flags.push(`原生 tools 已发送：是`); if (result.toolMode === 'native') flags.push(`原生 tool_calls：${result.nativeToolCallsObserved ? '观察到' : '未观察到'}`); if (result.toolMode === 'bridge') flags.push(`文本桥接 JSON：${result.bridgeToolCallsParsed ? '可解析' : '不可解析'}`); if (result.platformDeclaresTools !== undefined) flags.push(`平台声明 tools：${result.platformDeclaresTools ? '是' : '否'}`); if (result.finishReason) flags.push(`结束：${result.finishReason}`); return [result.answerPreview || result.error, flags.join(' · ')].filter(Boolean).join(' · ') || '未返回预览。'; }
 function textSpan(content, strong = false) { const span = document.createElement('span'); if (strong) span.className = 'table-main'; span.textContent = content; return span; }
 function statusChip(status) { const normalized = String(status || '未知').toLowerCase(); const chip = document.createElement('span'); const failed = ['failed', 'cancelled', 'error', 'interrupted'].includes(normalized); chip.className = `chip ${isActive({ status: normalized }) ? 'chip--running' : normalized === 'completed' || normalized === 'done' ? 'chip--done' : failed ? `chip--${normalized}` : ''}`; chip.textContent = ({ queued: '排队中', pending: '等待中', running: '运行中', cancelling: '正在取消', completed: '已完成', done: '已完成', failed: '失败', error: '错误', interrupted: '已中断', cancelled: '已取消' })[normalized] || status || '未知'; return chip; }
 

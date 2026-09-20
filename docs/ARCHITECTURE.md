@@ -25,7 +25,7 @@ Use the stable entry URL. Follow at most six redirects.
 Parse the public `dd` field without eval. Do not execute upstream scripts.
 Cache the origin for five minutes. A change clears the login token.
 Send credentials only to explicit trusted hostnames.
-A newly discovered hostname requires admin approval in settings.
+A newly discovered hostname requires admin approval and password re-entry in settings.
 Reject private IPs, HTTP URLs, credentials in URLs, and nonstandard ports.
 Pin the validated DNS address for the HTTPS connection.
 

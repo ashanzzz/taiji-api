@@ -40,7 +40,22 @@ export async function safeFetch(input, options = {}) {
 export async function discoverOrigin(config, fetcher = safeFetch) {
   let url = new URL(config.publicUrl);
   for (let hop = 0; hop < 6; hop++) {
-    const response = await fetcher(url.href, { signal: AbortSignal.timeout(15000) });
+    const response = await fetcher(url.href, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+        "sec-ch-ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "Upgrade-Insecure-Requests": "1"
+      },
+      signal: AbortSignal.timeout(15000)
+    });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location');
       await response.body?.cancel();

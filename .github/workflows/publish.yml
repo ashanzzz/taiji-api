@@ -75,3 +75,10 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Verify private package visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VISIBILITY=$(gh api "users/${GITHUB_REPOSITORY_OWNER}/packages/container/${GITHUB_REPOSITORY#*/}" --jq '.visibility')
+          echo "Container package visibility: $VISIBILITY"
+          test "$VISIBILITY" = 'private'

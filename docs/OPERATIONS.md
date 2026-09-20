@@ -30,7 +30,7 @@ Do not share the data directory across replicas or copy it into a container imag
 ## Troubleshooting
 - 401 admin: use ADMIN_KEY, not the NewAPI key or upstream password.
 - 400 reasoning or max_tokens: the feature is not verified for this channel. Remove the unsupported option.
-- 409 new origin: inspect the hostname, then add it to trustedHosts if you trust it.
+- 409 new origin: inspect the hostname, then add it to trustedHosts if you trust it. Re-enter the upstream password when adding a host.
 - 429 busy: wait for the current test or cancel it from the console.
 - 502 upstream: inspect sanitized logs. Do not automatically replay paid requests.
 - No daily sign-in: check enabled, time window, service uptime, login, and lastResult.

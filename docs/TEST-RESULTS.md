@@ -72,3 +72,24 @@ The precise boundary and the underlying model window remain unknown.
 ## Persistence retest
 After adding finite retries for transient Windows file locks, a new one-request output job completed and persisted successfully.
 Its candidate max_tokens=32 again did not constrain the response to that value.
+
+
+## Tool capability probe — September 20, 2026
+
+The GPT-6-Astra catalog metadata declared tools=false.
+A direct upstream request sent OpenAI-style tools and tool_choice=required with a get_current_weather definition. The stream contained only ordinary text stating that the tool was not provided. It did not emit a structured tool_calls event.
+A separate prompt-only JSON convention produced parseable tool intent in an earlier test. This is a text protocol bridge only. It does not prove execution, schema enforcement, reliable multi-turn tool state, or compatibility with Codex native tools.
+The relay therefore rejects public tools, tool_choice, functions, function_call, tool-call history, and tool result messages. Use a model/channel with verified native Function Calling for Codex tool workflows.
+
+## Tool bridge validation — September 20, 2026
+
+A live `tools` probe for `openai::gpt-6-astra` recorded both modes:
+
+| Mode | Result |
+| --- | --- |
+| Native `tools` + `tool_choice=required` | Platform declares `tools=false`. The upstream returned ordinary text that `get_current_weather` was unavailable. No structured tool event was observed. |
+| Prompted text JSON bridge | The model emitted parseable JSON for `get_current_weather({"location":"Tokyo"})`. This is not native Function Calling. |
+| Local bridge first turn | The local OpenAI-compatible endpoint returned `finish_reason: "tool_calls"` with a validated `exec_command({"cmd":"ls"})` request. |
+| Local bridge second turn | After a client-provided tool result, the model summarized `README.md`, `package.json`, `src`, and `test` correctly. |
+
+The local bridge can support a controlled personal Codex experiment. Do not treat it as upstream native tools support or as a reliable autonomous agent backend.

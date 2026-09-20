@@ -25,11 +25,12 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 - 管理页：服务概览、模型目录、流式调试、能力测试、设置、日志。
 - 支持从稳定入口发现实际域名，并可配置实际域名覆盖和默认模型。
-- 新域名必须加入受信任主机列表后，服务才会发送账号凭证。
+- 新域名必须加入受信任主机列表并重新输入网站密码，服务才会发送凭证。
 - 账号密码由 AES-256-GCM 加密保存。密码不会从管理 API 返回。
 - 只记录请求状态与测试指标，普通对话正文不会写入日志。
 - 支持流式与非流式文本对话、base64 图片及 usage。
 - 支持跨网络分块的 `<think>` 标签解析，输出 reasoning_content。
+- 原生 OpenAI Function Calling 默认拒绝。工具能力页面可检测平台原生参数与文本桥接，但 GPT-6 的文本桥接不能用作 Codex 原生工具后端。
 - 有预算的上下文、思考等级与输出参数测试，可取消并查看历史报告。
 - 每天在 Asia/Shanghai 指定时段随机安排一次签到，重启后保留计划。
 - GitHub Actions 自动测试、容器冒烟测试、构建 amd64/arm64 镜像并推送 GHCR。
@@ -129,3 +130,11 @@ npm test
 
 单元与 HTTP 测试不需要太极账号，也不会产生上游消费。
 `scripts/live-probes.mjs` 是显式选择的真实测试，会消耗账号额度。不要在 CI 自动运行。
+
+## Experimental local tool bridge
+
+The upstream GPT-6-Astra channel does not provide native Function Calling. The tool probe on September 20, 2026 sent a real `tools` and `tool_choice=required` request. The upstream returned ordinary text that the tool was unavailable and did not emit structured tool calls.
+
+For personal local testing only, set `EXPERIMENTAL_TOOL_BRIDGE=true` and allow specific full model IDs. The adapter then asks the model for a strict JSON tool intent, parses only allowlisted names and JSON-object arguments, returns OpenAI-shaped `tool_calls`, and converts a later `role: tool` result into labeled text for the model.
+
+The adapter never executes commands or tools. Codex or another client executes its own tools. Streamed bridge responses are buffered until the upstream completes so that the adapter can distinguish normal text from a tool JSON object. Do not expose this bridge publicly. It does not have native schema enforcement, reliable parallel tool calls, or upstream tool state.

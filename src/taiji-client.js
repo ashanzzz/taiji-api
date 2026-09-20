@@ -161,9 +161,24 @@ export class TaijiClient {
   }
 
   headers(auth, json) {
-    return { ...(json ? { 'Content-Type': 'application/json' } : {}),
-      'X-APP-VERSION': this.config.appVersion, 'X-Locale': 'zh-CN',
-      ...(auth && this.token ? { Authorization: this.token } : {}) };
+    const origin = this.origin || (this.config.fixedOrigin ? new URL(this.config.fixedOrigin).origin : "https://ai.txg2024.xyz");
+    return {
+      ...(json ? { "Content-Type": "application/json" } : {}),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+      "Accept": json ? "application/json, text/plain, */*" : "*/*",
+      "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Origin": origin,
+      "Referer": `${origin}/chat`,
+      "sec-ch-ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "X-APP-VERSION": this.config.appVersion,
+      "X-Locale": "zh-CN",
+      ...(auth && this.token ? { Authorization: this.token } : {})
+    };
   }
 }
 
