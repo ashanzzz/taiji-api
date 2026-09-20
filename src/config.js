@@ -16,8 +16,8 @@ export function loadConfig(env = process.env) {
     schedule: { enabled: false, startHour: 9, endHour: 20, timeZone: 'Asia/Shanghai' },
     experimentalToolBridge: env.EXPERIMENTAL_TOOL_BRIDGE === 'true',
     toolBridgeAllowedModels: splitList(env.TOOL_BRIDGE_ALLOWED_MODELS || ''),
-    toolBridgeMaxTools: boundedInteger(env.TOOL_BRIDGE_MAX_TOOLS, 8, 1, 16),
-    toolBridgeMaxCalls: boundedInteger(env.TOOL_BRIDGE_MAX_CALLS_PER_TURN, 1, 1, 4),
+    toolBridgeMaxTools: boundedInteger(env.TOOL_BRIDGE_MAX_TOOLS, 32, 1, 128),
+    toolBridgeMaxCalls: boundedInteger(env.TOOL_BRIDGE_MAX_CALLS_PER_TURN, 4, 1, 32),
     toolBridgeMaxRepairAttempts: boundedInteger(env.TOOL_BRIDGE_MAX_REPAIR_ATTEMPTS, 1, 0, 1),
   };
 }
@@ -53,7 +53,7 @@ export class Settings {
         maxTools: c.toolBridgeMaxTools,
         maxCalls: c.toolBridgeMaxCalls,
         maxRepairAttempts: c.toolBridgeMaxRepairAttempts,
-        warning: 'Experimental text bridge only. The upstream does not provide native Function Calling.',
+        warning: 'OpenAI-compatible function-tool bridge. The upstream itself still has no native Function Calling.',
       },
     };
   }

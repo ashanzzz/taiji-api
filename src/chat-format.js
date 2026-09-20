@@ -7,6 +7,7 @@ export function validateRequest(body) {
   }
   if (body.tools !== undefined && !Array.isArray(body.tools)) throw new HttpError(400, "tools must be an array");
   if (body.tool_choice !== undefined && body.tools === undefined) throw new HttpError(400, "tool_choice requires tools");
+  if (body.parallel_tool_calls !== undefined && typeof body.parallel_tool_calls !== "boolean") throw new HttpError(400, "parallel_tool_calls must be a boolean");
   for (const key of ["functions", "function_call"]) {
     if (body[key] !== undefined) throw new HttpError(400, "Legacy function calling is not supported. Use tools only with the explicitly enabled experimental bridge.");
   }
@@ -117,8 +118,15 @@ function normalizeMessage(message, index, calls) {
 }
 
 function textContent(value) {
-  if (typeof value === "string") return value.slice(0, 24000);
-  return JSON.stringify(value).slice(0, 24000);
+  const limit = 100000;
+  let text;
+  if (typeof value === "string") text = value;
+  else {
+    try { text = JSON.stringify(value); }
+    catch { text = String(value); }
+  }
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)}\n\n[工具结果已截断：原始 ${text.length} 字符，仅保留前 ${limit} 字符]`;
 }
 
 function tagPrefixLength(text, tag) {

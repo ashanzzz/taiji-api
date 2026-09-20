@@ -33,7 +33,7 @@ Pin the validated DNS address for the HTTPS connection.
 The website accepts a text field, not OpenAI messages.
 Multi-turn and system messages become a labeled transcript. Role isolation is not equivalent to native OpenAI roles.
 Remote images are rejected. Base64 image inputs are supported only when the model declares image input.
-Tool calling, structured outputs, sampling controls, and verified output token caps are not implemented.
+Native upstream tool calling is not available. The adapter provides an optional OpenAI-compatible text-to-function tool bridge for caller-executed function tools. Structured outputs, sampling controls, and verified output token caps are not implemented.
 Unsupported options return HTTP 400. Reasoning levels are never silently discarded.
 Thinking tags become `reasoning_content`. This is presentation, not proof of internal model reasoning.
 When the website omits finish_reason, the adapter uses stop after [DONE]. It cannot detect hidden upstream truncation.

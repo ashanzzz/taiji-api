@@ -68,7 +68,7 @@ class ConsoleApp {
   }
 
   async prepareRoute() {
-    if (['models', 'playground', 'tests', 'settings'].includes(this.route) && !this.models) await this.loadModels(false);
+    if (['overview', 'models', 'playground', 'tests', 'settings'].includes(this.route) && !this.models) await this.loadModels(false);
     if (this.route === 'tests') await this.loadTests(false);
     if (this.route === 'logs') await this.loadLogs(false);
     this.renderPage();
@@ -284,6 +284,7 @@ class ConsoleApp {
       const choice = chunk?.choices?.[0] || {};
       const delta = choice.delta || chunk?.delta || {};
       appendText(output, delta.content ?? choice.content ?? chunk?.content);
+      if (delta.tool_calls) appendText(output, (output.textContent ? "\n" : "") + `[工具调用] ${JSON.stringify(delta.tool_calls, null, 2)}`);
       const reasoningContent = delta.reasoning_content ?? choice.reasoning_content ?? chunk?.reasoning_content;
       if (reasoningContent) { appendText(reasoning, reasoningContent); panel.hidden = false; }
     }

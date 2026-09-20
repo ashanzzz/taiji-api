@@ -9,7 +9,7 @@ export class AdminApi {
     if (path === '/admin/state' && method === 'GET') return {
       settings: this.settings.public(), schedule: this.scheduler.state,
       status: { origin: this.client.origin, modelCount: this.client.modelCache?.value.models.length || 0,
-        version: '0.2.0', busy: this.gate.active, upstreamAuthenticated: Boolean(this.client.token) },
+        version: '0.3.0', busy: this.gate.active, upstreamAuthenticated: Boolean(this.client.token) },
       tests: this.probes.jobs, logs: this.log.items.slice(0, 40),
     };
     if (path === '/admin/settings' && method === 'PUT') {

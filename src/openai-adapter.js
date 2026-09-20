@@ -130,7 +130,7 @@ export class OpenAiAdapter {
 
 function completionResponse(request, output, analysis) {
   const isCalls = analysis.status === "calls";
-  const message = { role: "assistant", content: isCalls ? null : output.parts.content };
+  const message = { role: "assistant", content: isCalls ? null : (analysis.text ?? output.parts.content) };
   if (isCalls) message.tool_calls = analysis.calls;
   if (output.parts.reasoning_content) message.reasoning_content = output.parts.reasoning_content;
   return {
@@ -152,7 +152,7 @@ async function emitBufferedBridge(write, base, output, analysis, includeUsage) {
     await emit({ tool_calls: streamedCalls });
     await emit({}, "tool_calls");
   } else {
-    await emit({ content: output.parts.content });
+    await emit({ content: analysis.text ?? output.parts.content });
     await emit({}, finishReason(output.meta));
   }
   if (includeUsage) await write(`data: ${JSON.stringify({ ...base, choices: [], usage: usage(output.meta) })}\n\n`);

@@ -211,3 +211,85 @@ test('buildTaijiInput preserves tool_call_id and distinguishes parallel tool cal
   assert.match(input.text, /result:\nsunny/);
   assert.match(input.text, /result:\nrainy/);
 });
+
+
+test('parallel_tool_calls=false limits a turn to one call', () => {
+  const tools = [{ type: 'function', function: { name: 'get_weather', parameters: { type: 'object', properties: { city: { type: 'string' } } } } }];
+  const bridge = createToolBridge({ tools, parallel_tool_calls: false }, { value: 'demo' }, { ...baseConfig, toolBridgeMaxCalls: 4 });
+  assert.equal(bridge.maxCalls, 1);
+  assert.equal(bridge.parallelToolCalls, false);
+  const result = analyzeBridgeOutput('<TOOL_CALL>{"tool_calls":[{"name":"get_weather","arguments":{"city":"Tokyo"}},{"name":"get_weather","arguments":{"city":"Paris"}}]}</TOOL_CALL>', bridge);
+  assert.equal(result.status, 'error');
+  assert.match(result.reason, /exceeds maximum allowed/);
+});
+
+test('allowed_tools restricts callable subset and supports required mode', () => {
+  const tools = [
+    { type: 'function', function: { name: 'search', parameters: { type: 'object', properties: {} } } },
+    { type: 'function', function: { name: 'read_file', parameters: { type: 'object', properties: {} } } },
+  ];
+  const bridge = createToolBridge({
+    tools,
+    tool_choice: { type: 'allowed_tools', mode: 'required', tools: [{ type: 'function', name: 'read_file' }] },
+  }, { value: 'demo' }, baseConfig);
+  assert.equal(bridge.choice.mode, 'allowed');
+  assert.equal(bridge.choice.requireCall, true);
+  assert.deepEqual(bridge.choice.names, ['read_file']);
+  assert.equal(analyzeBridgeOutput('plain text', bridge).status, 'error');
+  const denied = analyzeBridgeOutput('<TOOL_CALL>{"tool_calls":[{"name":"search","arguments":{}}]}</TOOL_CALL>', bridge);
+  assert.equal(denied.status, 'error');
+  assert.match(denied.reason, /allowed_tools/);
+  const allowed = analyzeBridgeOutput('<TOOL_CALL>{"tool_calls":[{"name":"read_file","arguments":{}}]}</TOOL_CALL>', bridge);
+  assert.equal(allowed.status, 'calls');
+});
+
+test('schema validator supports const, combinators, local refs, uniqueItems, and multipleOf', () => {
+  const schema = {
+    type: 'object',
+    $defs: { mode: { enum: ['fast', 'safe'] } },
+    properties: {
+      kind: { const: 'job' },
+      mode: { $ref: '#/$defs/mode' },
+      value: { oneOf: [{ type: 'string', minLength: 2 }, { type: 'integer', multipleOf: 2 }] },
+      tags: { type: 'array', uniqueItems: true, items: { type: 'string' } },
+    },
+    required: ['kind', 'mode', 'value'],
+    additionalProperties: false,
+  };
+  assert.equal(validateSchema({ kind: 'job', mode: 'fast', value: 4, tags: ['a', 'b'] }, schema).valid, true);
+  assert.equal(validateSchema({ kind: 'nope', mode: 'fast', value: 4 }, schema).valid, false);
+  assert.equal(validateSchema({ kind: 'job', mode: 'bad', value: 4 }, schema).valid, false);
+  assert.equal(validateSchema({ kind: 'job', mode: 'fast', value: 3 }, schema).valid, false);
+  assert.equal(validateSchema({ kind: 'job', mode: 'safe', value: 'ok', tags: ['a', 'a'] }, schema).valid, false);
+});
+
+test('strict metadata is preserved and OpenAI-compatible digit-leading names are accepted', () => {
+  const tools = [{ type: 'function', function: { name: '7zip_extract', strict: true, parameters: { type: 'object', properties: {} } } }];
+  const bridge = createToolBridge({ tools }, { value: 'demo' }, baseConfig);
+  assert.equal(bridge.tools[0].function.strict, true);
+  assert.equal(bridge.tools[0].function.name, '7zip_extract');
+});
+
+test('tool history can be replayed even when current turn submits no tools', () => {
+  const messages = [
+    { role: 'user', content: 'check weather' },
+    { role: 'assistant', tool_calls: [{ id: 'call_old', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' } }] },
+    { role: 'tool', tool_call_id: 'call_old', content: 'sunny' },
+    { role: 'user', content: 'summarize it' },
+  ];
+  const input = buildTaijiInput(messages, null);
+  assert.match(input.text, /tool_call_id: call_old/);
+  assert.match(input.text, /result:\nsunny/);
+});
+
+test('large tool results are explicitly marked when truncated', () => {
+  const longResult = 'x'.repeat(100100);
+  const messages = [
+    { role: 'assistant', tool_calls: [{ id: 'call_big', type: 'function', function: { name: 'read_file', arguments: '{}' } }] },
+    { role: 'tool', tool_call_id: 'call_big', content: longResult },
+    { role: 'user', content: 'continue' },
+  ];
+  const input = buildTaijiInput(messages, null);
+  assert.match(input.text, /工具结果已截断/);
+  assert.match(input.text, /原始 100100 字符/);
+});

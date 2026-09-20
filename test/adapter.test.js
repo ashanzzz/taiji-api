@@ -24,6 +24,12 @@ test('unsupported parameters are not silently discarded', () => {
   assert.throws(() => reasoningOptions({ reasoning_effort: 'high' }, {}), /not silently discarded/);
   assert.deepEqual(reasoningOptions({ reasoning_effort: 'high' }, { attr: { capabilities: { reasoningEfforts: ['high'] } } }), { thinking: true, reasoningEffort: 'high' });
 });
+
+
+test('parallel_tool_calls must be boolean', () => {
+  assert.throws(() => validateRequest({ messages: [{ role: 'user', content: 'hello' }], parallel_tool_calls: 'false' }), /must be a boolean/);
+});
+
 test('SSE supports CRLF split at every byte including Unicode', async () => {
   const input = Buffer.from('data: {"data":"你好"}\r\n\r\ndata: [DONE]\r\n\r\n');
   const body = Readable.toWeb(Readable.from([...input].map(b => Buffer.from([b]))));
@@ -213,4 +219,25 @@ test('explicit tool intent fails with 502 tool_parse_error when unrepairable', a
     assert.equal(err.details?.code, 'tool_parse_error');
     return true;
   });
+});
+
+
+test('tool_choice=none strips accidental tool-call markers from returned content', async () => {
+  const raw = '<TOOL_CALL>{"tool_calls":[{"name":"exec_command","arguments":{}}]}</TOOL_CALL>Safe plain reply';
+  const client = fakeClient([{ kind: 'delta', text: raw }, { kind: 'meta', data: {} }]);
+  const adapter = new OpenAiAdapter(client, {
+    experimentalToolBridge: true,
+    toolBridgeAllowedModels: ['demo'],
+    toolBridgeMaxTools: 8,
+    toolBridgeMaxCalls: 2,
+    deleteTempSessions: true,
+  });
+  const res = await adapter.complete({
+    model: 'demo',
+    messages: [{ role: 'user', content: 'answer without tools' }],
+    tools: [{ type: 'function', function: { name: 'exec_command', parameters: { type: 'object' } } }],
+    tool_choice: 'none',
+  });
+  assert.equal(res.choices[0].message.content, 'Safe plain reply');
+  assert.equal(res.choices[0].finish_reason, 'stop');
 });

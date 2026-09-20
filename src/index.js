@@ -23,7 +23,7 @@ try {
   const admin = new AdminApi({ settings, log, gate, client, auth, probes, scheduler });
   const server = createApiServer(config, adapter, admin);
   server.listen(config.port, config.host, () => {
-    log.add('startup', 'Taiji API started', { version: '0.2.0', port: config.port });
+    log.add('startup', 'Taiji API started', { version: '0.3.0', port: config.port });
     console.log(`Taiji API listening on ${config.host}:${config.port}`);
     console.log('Admin key: set ADMIN_KEY or read the local data/auth.json file. Never publish this file.');
     scheduler.start();

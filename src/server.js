@@ -12,7 +12,7 @@ export function createApiServer(config, adapter, admin) {
     secureHeaders(response);
     try {
       path = new URL(request.url, 'http://localhost').pathname;
-      if (request.method === 'GET' && path === '/healthz') return sendJson(response, 200, { status: 'ok', version: '0.2.0' });
+      if (request.method === 'GET' && path === '/healthz') return sendJson(response, 200, { status: 'ok', version: '0.3.0' });
       if (path.startsWith('/admin/')) {
         checkOrigin(request);
         if (path !== '/admin/login') admin.auth.require(request);

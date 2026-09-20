@@ -131,10 +131,12 @@ npm test
 单元与 HTTP 测试不需要太极账号，也不会产生上游消费。
 `scripts/live-probes.mjs` 是显式选择的真实测试，会消耗账号额度。不要在 CI 自动运行。
 
-## Experimental local tool bridge
+## OpenAI-compatible function tool bridge
 
-The upstream GPT-6-Astra channel does not provide native Function Calling. The tool probe on September 20, 2026 sent a real `tools` and `tool_choice=required` request. The upstream returned ordinary text that the tool was unavailable and did not emit structured tool calls.
+The upstream GPT-6-Astra web channel does not expose native Function Calling. The local bridge adds caller-dispatched OpenAI function tools without changing the upstream transport. Enable it with `EXPERIMENTAL_TOOL_BRIDGE=true` and an explicit model allowlist.
 
-For personal local testing only, set `EXPERIMENTAL_TOOL_BRIDGE=true` and allow specific full model IDs. The adapter then asks the model for a strict JSON tool intent, parses only allowlisted names and JSON-object arguments, returns OpenAI-shaped `tool_calls`, and converts a later `role: tool` result into labeled text for the model.
+The bridge supports `tool_choice` values `none`, `auto`, `required`, forced functions, and OpenAI `allowed_tools`. It honors `parallel_tool_calls=false`, preserves `strict`, validates common JSON Schema constructs including local `$ref`, combinators, `const`, arrays and object constraints, preserves `tool_call_id` across multi-turn histories, and emits indexed streaming `tool_calls`. Invalid tool output may receive one bounded repair attempt before a `tool_parse_error`.
 
-The adapter never executes commands or tools. Codex or another client executes its own tools. Streamed bridge responses are buffered until the upstream completes so that the adapter can distinguish normal text from a tool JSON object. Do not expose this bridge publicly. It does not have native schema enforcement, reliable parallel tool calls, or upstream tool state.
+The adapter never executes commands or tools. Codex, NewAPI, an agent runtime, or another client remains responsible for execution and sends results back using `role: tool`. Tool-mode streaming is intentionally buffered until the upstream turn finishes, because the web model emits text rather than native structured tool events. Historical `tool_calls` and tool results can be replayed even when the current turn does not submit new tools.
+
+This is a compatibility layer, not native upstream tool state. Only OpenAI-style `function` tools are implemented; newer custom/built-in/MCP tool object types are outside this endpoint's current scope.
